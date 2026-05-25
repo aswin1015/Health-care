@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aegis-config
+  labels:
+    app: aegis
+data:
+  MONGODB_URI: "mongodb://mongodb:27017/ai-health-agent"
+  HEALTH_RECORDS_PORT: "5001"
+  MEDICATION_PORT:     "5002"
+  AI_SERVICE_PORT:     "5003"

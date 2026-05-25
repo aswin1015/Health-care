@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-worker
+  labels:
+    app: aegis
+    tier: background
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-worker
+  template:
+    metadata:
+      labels:
+        app: notification-worker
+    spec:
+      serviceAccountName: aegis-notification-worker
+      containers:
+        - name: notification-worker
+          image: aegis-notification-worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: aegis-config
+                  key: MONGODB_URI
+          resources:
+            limits:
+              cpu: "300m"
+              memory: "128Mi"
+            requests:
+              cpu: "50m"
+              memory: "64Mi"

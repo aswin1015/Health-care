@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medication-service
+  labels:
+    app: medication-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: medication-service
+  template:
+    metadata:
+      labels:
+        app: medication-service
+    spec:
+      containers:
+        - name: medication-service
+          image: aegis/medication-service:latest
+          ports:
+            - containerPort: 5002
+          env:
+            - name: PORT
+              value: "5002"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: aegis-secrets
+                  key: MONGODB_URI
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5002
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medication-service
+  labels:
+    app: medication-service
+spec:
+  selector:
+    app: medication-service
+  ports:
+    - port: 5002
+      targetPort: 5002
+      protocol: TCP
+  type: ClusterIP

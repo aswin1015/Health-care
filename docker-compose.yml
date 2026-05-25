@@ -1,0 +1,119 @@
+version: '3.9'
+
+# ─── Aegis Health — Microservices Architecture ────────────────────────────────
+# Services match Finance-Flowapp domain-separated structure.
+
+services:
+
+  # ── MongoDB ────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: aegis-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: ai-health-agent
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aegis-net
+
+  # ── Health Records Service (port 5001) ────────────────────────────────────
+  health-records-service:
+    build:
+      context: ./services/health-records-service
+      dockerfile: Dockerfile
+    container_name: aegis-health-records
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: 5001
+      MONGODB_URI: mongodb://mongodb:27017/ai-health-agent
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - aegis-net
+
+  # ── Medication Service (port 5002) ────────────────────────────────────────
+  medication-service:
+    build:
+      context: ./services/medication-service
+      dockerfile: Dockerfile
+    container_name: aegis-medication
+    restart: unless-stopped
+    ports:
+      - "5002:5002"
+    environment:
+      PORT: 5002
+      MONGODB_URI: mongodb://mongodb:27017/ai-health-agent
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - aegis-net
+
+  # ── AI Service (port 5003) ─────────────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+    container_name: aegis-ai
+    restart: unless-stopped
+    ports:
+      - "5003:5003"
+    environment:
+      PORT: 5003
+      MONGODB_URI: mongodb://mongodb:27017/ai-health-agent
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - aegis-net
+
+  # ── Notification Worker (background) ──────────────────────────────────────
+  notification-worker:
+    build:
+      context: ./services/notification-worker
+      dockerfile: Dockerfile
+    container_name: aegis-notification-worker
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/ai-health-agent
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - aegis-net
+
+  # ── React Frontend (port 3000) ─────────────────────────────────────────────
+  client:
+    build:
+      context: .
+      dockerfile: ./client/Dockerfile
+    container_name: aegis-client
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - health-records-service
+      - medication-service
+      - ai-service
+    networks:
+      - aegis-net
+
+# ─── Volumes & Network ────────────────────────────────────────────────────────
+volumes:
+  mongo_data:
+
+networks:
+  aegis-net:
+    driver: bridge
