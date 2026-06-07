@@ -24,38 +24,6 @@ mongoose.connect(MONGODB_URI)
   .then(async () => {
     console.log('[medication-service] Connected to MongoDB');
 
-    if ((await Medication.countDocuments()) === 0) {
-      await Medication.insertMany([
-        {
-          name: 'Lisinopril', dosage: '10mg', frequency: 'Daily',
-          schedules: [{ time: '08:00', taken: false }, { time: '20:00', taken: false }],
-          startDate: '2026-05-18',
-          instructions: 'Take once with breakfast, once with dinner. Do not skip.',
-          missedCount: 0,
-        },
-        {
-          name: 'Atorvastatin', dosage: '20mg', frequency: 'Daily',
-          schedules: [{ time: '21:00', taken: false }],
-          startDate: '2026-05-18',
-          instructions: 'Take before sleep.',
-          missedCount: 0,
-        },
-      ]);
-      console.log('[medication-service] Seeded default Medications');
-    }
-
-    if ((await Caregiver.countDocuments()) === 0) {
-      await Caregiver.create({
-        name: 'Sarah Connor', relationship: 'Daughter / Emergency Contact',
-        phone: '+1-555-0199', email: 'sarah.connor@example.com', alertThreshold: 2,
-      });
-      console.log('[medication-service] Seeded default Caregiver');
-    }
-
-    if ((await SystemStatus.countDocuments()) === 0) {
-      await SystemStatus.create({ caregiverAlerted: false });
-    }
-
     app.listen(PORT, () =>
       console.log(`[medication-service] Running on port ${PORT}`)
     );

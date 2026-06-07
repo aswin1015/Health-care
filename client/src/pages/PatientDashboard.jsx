@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { medicationsAPI, appointmentsAPI, statusAPI } from '../services/api';
+import { medicationsAPI, appointmentsAPI, statusAPI, activityAPI } from '../services/api';
 
 export default function PatientDashboard() {
   const { user } = useAuth();
@@ -12,20 +12,23 @@ export default function PatientDashboard() {
   const [medications, setMedications] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [medsRes, apptRes, statusRes] = await Promise.all([
+        const [medsRes, apptRes, statusRes, activitiesRes] = await Promise.all([
           medicationsAPI.getAll(),
           appointmentsAPI.getAll(),
           statusAPI.get(),
+          activityAPI.getAll(),
         ]);
         setMedications(medsRes.data);
         setAppointments(apptRes.data.filter(a => a.status === 'Scheduled'));
         setSystemStatus(statusRes.data);
+        setActivities(activitiesRes.data || []);
       } catch {
         addToast('Could not load dashboard data. Is the server running?', 'error');
       } finally {
@@ -169,27 +172,40 @@ export default function PatientDashboard() {
             )}
           </div>
 
-          {/* 3. Activity Tracking */}
+          {/* 3. Activity Tracking — computed from real activity log */}
           <div className="widget-glass" style={{ gridColumn: 'span 4' }}>
             <h3 style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Activity Tracking</h3>
-            {[
-              { label: 'Steps', value: 6500, goal: 10000, color: 'var(--accent-cyan)', unit: '' },
-              { label: 'Sleep', value: 6.5, goal: 8, color: 'var(--accent-purple)', unit: 'h' },
-              { label: 'Water', value: 4, goal: 8, color: 'var(--accent-blue)', unit: ' glasses' },
-            ].map(({ label, value, goal, color, unit }) => {
-              const pct = Math.round((value / goal) * 100);
-              return (
-                <div key={label} style={{ marginBottom: '1rem' }}>
-                  <div className="flex-between" style={{ fontSize: '0.8rem', marginBottom: '0.3rem' }}>
-                    <span>{label} ({value}{unit} / {goal}{unit})</span>
-                    <span style={{ color }}>{pct}%</span>
+            {(() => {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const todayActivities = activities.filter(a => (a.date || '').slice(0, 10) === todayStr);
+              const steps = todayActivities.filter(a => a.type?.toLowerCase() === 'steps').reduce((s, a) => s + (a.duration || 0), 0);
+              const sleep = todayActivities.filter(a => a.type?.toLowerCase() === 'sleep').reduce((s, a) => s + (a.duration || 0), 0);
+              const water = todayActivities.filter(a => a.type?.toLowerCase() === 'water').reduce((s, a) => s + (a.duration || 0), 0);
+              const metrics = [
+                { label: 'Steps', value: steps, goal: 10000, color: 'var(--accent-cyan)', unit: '' },
+                { label: 'Sleep', value: sleep, goal: 480, color: 'var(--accent-purple)', unit: ' min' },
+                { label: 'Water', value: water, goal: 8, color: 'var(--accent-blue)', unit: ' glasses' },
+              ];
+              return metrics.map(({ label, value, goal, color, unit }) => {
+                const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
+                return (
+                  <div key={label} style={{ marginBottom: '1rem' }}>
+                    <div className="flex-between" style={{ fontSize: '0.8rem', marginBottom: '0.3rem' }}>
+                      <span>{label} ({value}{unit} / {goal}{unit})</span>
+                      <span style={{ color }}>{pct}%</span>
+                    </div>
+                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: color, transition: 'width 0.5s ease' }}></div>
+                    </div>
                   </div>
-                  <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: color, transition: 'width 0.5s ease' }}></div>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
+            {activities.length === 0 && (
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                No activity logged today. <span style={{ color: 'var(--accent-cyan)', cursor: 'pointer' }} onClick={() => navigate('/patient/activity')}>Log activity →</span>
+              </p>
+            )}
           </div>
 
           {/* 4. AI Health Insights */}

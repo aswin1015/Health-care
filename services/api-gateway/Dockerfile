@@ -1,35 +1,45 @@
-# Build stage
+# ── Build stage ───────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
-WORKDIR /usr/src/app
+# Use project root as workspace so the directory structure mirrors the repo:
+#   /workspace/shared/types.ts
+#   /workspace/services/api-gateway/src/models/models.ts
+# This makes the import '../../../../shared/types' resolve correctly:
+#   from src/models/ → ../../../../ → /workspace/ → shared/types ✅
+WORKDIR /workspace
 
-# Copy shared types as well since compile depends on it
-COPY shared/ /usr/src/shared/
+# Copy shared types (needed by TypeScript at compile time)
+COPY shared/ ./shared/
+
+# Copy api-gateway package files and install ALL deps (incl. typescript/ts-node)
 COPY services/api-gateway/package*.json ./services/api-gateway/
 COPY services/api-gateway/tsconfig.json ./services/api-gateway/
 
-WORKDIR /usr/src/app/services/api-gateway
+WORKDIR /workspace/services/api-gateway
 RUN npm ci
 
+# Copy source and compile
 COPY services/api-gateway/src/ ./src/
 RUN npm run build
+# TypeScript rootDir auto-resolves to /workspace/ (common ancestor of src/ and shared/)
+# So output lands at: dist/services/api-gateway/src/index.js
 
-# Production stage
+# ── Production stage ───────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
-WORKDIR /usr/src/app/services/api-gateway
+WORKDIR /app
 
-# Set production env
 ENV NODE_ENV=production
 ENV PORT=5000
 
+# Install production deps only
 COPY services/api-gateway/package*.json ./
 RUN npm ci --only=production
 
-COPY --from=builder /usr/src/app/services/api-gateway/dist ./dist
+# Copy the full compiled dist tree from builder
+COPY --from=builder /workspace/services/api-gateway/dist ./dist
 
-# Expose port
 EXPOSE 5000
 
-# Run API Gateway
-CMD ["node", "dist/index.js"]
+# Entry point matches the TypeScript rootDir-computed output path
+CMD ["node", "dist/services/api-gateway/src/index.js"]

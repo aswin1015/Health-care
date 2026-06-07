@@ -30,36 +30,6 @@ mongoose.connect(MONGODB_URI)
   .then(async () => {
     console.log('[health-records-service] Connected to MongoDB');
 
-    if ((await MedicalRecord.countDocuments()) === 0) {
-      await MedicalRecord.insertMany([
-        {
-          date: '2026-05-10', category: 'Allergy',
-          title: 'Penicillin Allergy',
-          description: 'Develops hives and swelling upon ingestion.',
-          notes: 'Flagged in all prescriptions.',
-        },
-        {
-          date: '2026-05-18', category: 'Diagnosis',
-          title: 'Stage I Hypertension',
-          description: 'Identified elevated resting blood pressure readings (138/89). Recommended lifestyle changes.',
-          notes: 'Resting BP checked twice daily.',
-        },
-      ]);
-      console.log('[health-records-service] Seeded default Medical Records');
-    }
-
-    if ((await Appointment.countDocuments()) === 0) {
-      await Appointment.insertMany([
-        {
-          dateTime: '2026-06-15T10:00:00.000Z',
-          provider: 'Jane Foster', specialty: 'Cardiology',
-          purpose: 'Hypertension follow-up check and medication review.',
-          status: 'Scheduled', notes: 'Bring BP history log.',
-        },
-      ]);
-      console.log('[health-records-service] Seeded default Appointments');
-    }
-
     app.listen(PORT, () =>
       console.log(`[health-records-service] Running on port ${PORT}`)
     );
