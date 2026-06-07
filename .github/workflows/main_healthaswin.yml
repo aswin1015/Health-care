@@ -1,0 +1,166 @@
+# ─── Aegis Health — Build & Deploy to Azure App Service (Multi-Container) ─────
+# Builds all microservice images, pushes to ACR, then deploys via Docker Compose.
+
+name: Build and deploy Aegis Health to Azure App Service
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  ACR_NAME: ${{ secrets.ACR_NAME }}                   # e.g. aegishealthcr
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}    # e.g. aegishealthcr.azurecr.io
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }} # e.g. aegis-health-app
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Stage 1 — Build all Docker images and push to Azure Container Registry
+  # ────────────────────────────────────────────────────────────────────────────
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push — API Gateway
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/aegis-api-gateway:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/aegis-api-gateway:latest \
+                        -f ./services/api-gateway/Dockerfile .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/aegis-api-gateway --all-tags
+
+      - name: Build and push — Health Records Service
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/aegis-health-records:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/aegis-health-records:latest \
+                        -f ./services/health-records-service/Dockerfile ./services/health-records-service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/aegis-health-records --all-tags
+
+      - name: Build and push — Medication Service
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/aegis-medication:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/aegis-medication:latest \
+                        -f ./services/medication-service/Dockerfile ./services/medication-service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/aegis-medication --all-tags
+
+      - name: Build and push — AI Service
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/aegis-ai:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/aegis-ai:latest \
+                        -f ./services/ai-service/Dockerfile ./services/ai-service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/aegis-ai --all-tags
+
+      - name: Build and push — Notification Worker
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/aegis-notification-worker:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/aegis-notification-worker:latest \
+                        -f ./services/notification-worker/Dockerfile ./services/notification-worker
+          docker push ${{ env.ACR_LOGIN_SERVER }}/aegis-notification-worker --all-tags
+
+      - name: Build and push — Client (React + Nginx)
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/aegis-client:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/aegis-client:latest \
+                        -f ./client/Dockerfile .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/aegis-client --all-tags
+
+      # Generate a deploy-ready compose file that points to ACR images
+      - name: Generate deployment docker-compose
+        run: |
+          cat > docker-compose.deploy.yml << 'COMPOSE'
+          services:
+            api-gateway:
+              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-api-gateway:${{ github.sha }}
+              ports:
+                - "5000:5000"
+              environment:
+                PORT: 5000
+                MONGODB_URI: ${MONGODB_URI}
+                JWT_SECRET: ${JWT_SECRET}
+
+            health-records-service:
+              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-health-records:${{ github.sha }}
+              ports:
+                - "5001:5001"
+              environment:
+                PORT: 5001
+                MONGODB_URI: ${MONGODB_URI}
+
+            medication-service:
+              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-medication:${{ github.sha }}
+              ports:
+                - "5002:5002"
+              environment:
+                PORT: 5002
+                MONGODB_URI: ${MONGODB_URI}
+
+            ai-service:
+              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-ai:${{ github.sha }}
+              ports:
+                - "5003:5003"
+              environment:
+                PORT: 5003
+                MONGODB_URI: ${MONGODB_URI}
+                GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+            notification-worker:
+              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-notification-worker:${{ github.sha }}
+              environment:
+                MONGODB_URI: ${MONGODB_URI}
+
+            client:
+              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-client:${{ github.sha }}
+              ports:
+                - "80:80"
+          COMPOSE
+
+      - name: Upload deployment compose file
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-compose
+          path: docker-compose.deploy.yml
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Stage 2 — Deploy to Azure App Service (Multi-Container)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download deployment compose file
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-compose
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Web App (Multi-Container)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          configuration-file: docker-compose.deploy.yml
