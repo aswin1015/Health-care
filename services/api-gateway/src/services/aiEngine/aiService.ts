@@ -22,8 +22,8 @@ const getGeminiClient = () => {
 async function compilePatientContext(userId: string): Promise<string> {
   try {
     const [history, appointments, medications, caregiver, systemStatus] = await Promise.all([
-      MedicalRecordModel.find({ userId }).sort({ date: -1 }).limit(5),
-      AppointmentModel.find({ userId, status: 'Scheduled' }).sort({ dateTime: 1 }).limit(3),
+      MedicalRecordModel.find({ userId }).limit(5),
+      AppointmentModel.find({ userId, status: 'Scheduled' }).limit(3),
       MedicationModel.find({ userId }),
       CaregiverModel.findOne({ userId }),
       SystemStatusModel.findOne({ userId }),

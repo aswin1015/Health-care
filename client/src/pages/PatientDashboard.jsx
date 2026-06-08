@@ -13,22 +13,25 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [medsRes, apptRes, statusRes, activitiesRes] = await Promise.all([
+        const [medsRes, apptRes, statusRes, activitiesRes, statsRes] = await Promise.all([
           medicationsAPI.getAll(),
           appointmentsAPI.getAll(),
           statusAPI.get(),
           activityAPI.getAll(),
+          activityAPI.getStats(),
         ]);
         setMedications(medsRes.data);
         setAppointments(apptRes.data.filter(a => a.status === 'Scheduled'));
         setSystemStatus(statusRes.data);
         setActivities(activitiesRes.data || []);
+        setStats(statsRes.data);
       } catch {
         addToast('Could not load dashboard data. Is the server running?', 'error');
       } finally {
@@ -172,39 +175,31 @@ export default function PatientDashboard() {
             )}
           </div>
 
-          {/* 3. Activity Tracking — computed from real activity log */}
+          {/* 3. Activity Tracking — Live Stats */}
           <div className="widget-glass" style={{ gridColumn: 'span 4' }}>
             <h3 style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Activity Tracking</h3>
-            {(() => {
-              const todayStr = new Date().toISOString().slice(0, 10);
-              const todayActivities = activities.filter(a => (a.date || '').slice(0, 10) === todayStr);
-              const steps = todayActivities.filter(a => a.type?.toLowerCase() === 'steps').reduce((s, a) => s + (a.duration || 0), 0);
-              const sleep = todayActivities.filter(a => a.type?.toLowerCase() === 'sleep').reduce((s, a) => s + (a.duration || 0), 0);
-              const water = todayActivities.filter(a => a.type?.toLowerCase() === 'water').reduce((s, a) => s + (a.duration || 0), 0);
-              const metrics = [
-                { label: 'Steps', value: steps, goal: 10000, color: 'var(--accent-cyan)', unit: '' },
-                { label: 'Sleep', value: sleep, goal: 480, color: 'var(--accent-purple)', unit: ' min' },
-                { label: 'Water', value: water, goal: 8, color: 'var(--accent-blue)', unit: ' glasses' },
-              ];
-              return metrics.map(({ label, value, goal, color, unit }) => {
-                const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
-                return (
-                  <div key={label} style={{ marginBottom: '1rem' }}>
-                    <div className="flex-between" style={{ fontSize: '0.8rem', marginBottom: '0.3rem' }}>
-                      <span>{label} ({value}{unit} / {goal}{unit})</span>
-                      <span style={{ color }}>{pct}%</span>
-                    </div>
-                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: color, transition: 'width 0.5s ease' }}></div>
-                    </div>
+            {stats ? (
+              <>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ flex: 1, background: 'rgba(0,229,255,0.05)', border: '1px solid rgba(0,229,255,0.2)', padding: '0.75rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>🔥</div>
+                    <div style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>{stats.totalCalories} kcal</div>
                   </div>
-                );
-              });
-            })()}
-            {activities.length === 0 && (
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                No activity logged today. <span style={{ color: 'var(--accent-cyan)', cursor: 'pointer' }} onClick={() => navigate('/patient/activity')}>Log activity →</span>
-              </p>
+                  <div style={{ flex: 1, background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', padding: '0.75rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>⏱️</div>
+                    <div style={{ fontWeight: '700', color: 'var(--accent-emerald)' }}>{stats.totalMinutes} min</div>
+                  </div>
+                  <div style={{ flex: 1, background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', padding: '0.75rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>🏆</div>
+                    <div style={{ fontWeight: '700', color: 'var(--accent-amber)' }}>{stats.streak} Days</div>
+                  </div>
+                </div>
+                <button className="btn-submit" style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }} onClick={() => navigate('/patient/activity')}>
+                  View Detailed Tracking →
+                </button>
+              </>
+            ) : (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading stats...</p>
             )}
           </div>
 

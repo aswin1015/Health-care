@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { aiAPI } from '../../services/api';
+import { aiAPI, historyAPI } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 export default function ChatAssistant() {
   const [messages, setMessages] = useState([
@@ -8,6 +9,8 @@ export default function ChatAssistant() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const { addToast } = useToast();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -39,6 +42,44 @@ export default function ChatAssistant() {
       ]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', `Chat Document: ${file.name}`);
+      formData.append('category', 'Lab Report');
+      formData.append('date', new Date().toISOString().split('T')[0]);
+      
+      try {
+        setIsLoading(true);
+        // Show file in chat
+        setMessages(prev => [...prev, { sender: 'user', text: `📎 Uploaded Document: ${file.name}\n\nPlease read this document.`, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+        setMessages(prev => [...prev, { sender: 'ai', text: '...', time: '', isTyping: true }]);
+        
+        await historyAPI.upload(formData);
+        
+        // Wait a little for async processing then let AI reply (mock AI reply since actual extraction is async)
+        const res = await aiAPI.chat(`I have uploaded a document: ${file.name}. Can you acknowledge it?`);
+        
+        setMessages(prev => [
+          ...prev.filter(m => !m.isTyping),
+          { sender: 'ai', text: `I have received the document "${file.name}". Our background processors are currently extracting its contents. Once processed, it will be added to your Medical Records and I'll be able to answer questions about it.`, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+        ]);
+        
+        addToast(`Document "${file.name}" sent to AI.`, 'success');
+      } catch (error) {
+        addToast('Failed to upload document.', 'error');
+        setMessages(prev => [
+          ...prev.filter(m => !m.isTyping),
+          { sender: 'ai', text: '⚠️ Failed to process the document upload.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -127,7 +168,12 @@ export default function ChatAssistant() {
               </button>
             ))}
           </div>
-          <form onSubmit={handleSend} style={{ display: 'flex', gap: '1rem' }}>
+          <form onSubmit={handleSend} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isLoading}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.5 : 1 }}>
+              📎
+            </button>
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
             <input
               type="text" value={input} onChange={(e) => setInput(e.target.value)}
               placeholder={isLoading ? 'Aegis is thinking...' : 'Ask me anything about your health...'}

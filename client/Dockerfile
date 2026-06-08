@@ -3,6 +3,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app/client
 
+# Accept api-gateway URL at build time so Socket.io connects directly to ACA
+# Usage: docker build --build-arg VITE_API_URL=https://api-gateway.<env>.azurecontainerapps.io
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY client/package*.json ./
 RUN npm install
 

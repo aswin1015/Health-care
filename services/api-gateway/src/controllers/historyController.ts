@@ -3,7 +3,7 @@ import { MedicalRecordModel } from '../models/models';
 
 export const getHistory = async (req: Request, res: Response) => {
   try {
-    const records = await MedicalRecordModel.find({ userId: req.userId }).sort({ date: -1 });
+    const records = await MedicalRecordModel.find({ userId: req.userId });
     res.json(records);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

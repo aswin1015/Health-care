@@ -15,14 +15,16 @@ const getGeminiClient = () => {
 };
 
 // ─── Patient Context Builder ──────────────────────────────────────────────────
-async function compilePatientContext() {
+async function compilePatientContext(userId) {
+  if (!userId) return 'Error: userId not provided — cannot load patient context.';
   try {
+    const filter = { userId };
     const [history, appointments, medications, caregiver, systemStatus] = await Promise.all([
-      MedicalRecord.find().sort({ date: -1 }).limit(5),
-      Appointment.find({ status: 'Scheduled' }).sort({ dateTime: 1 }).limit(3),
-      Medication.find(),
-      Caregiver.findOne(),
-      SystemStatus.findOne(),
+      MedicalRecord.find(filter).sort({ createdAt: -1 }).limit(5),
+      Appointment.find({ ...filter, status: 'Scheduled' }).limit(3),
+      Medication.find(filter),
+      Caregiver.findOne(filter),
+      SystemStatus.findOne(filter),
     ]);
 
     let ctx = 'PATIENT REAL-TIME HEALTH CONTEXT:\n\n';
@@ -66,8 +68,8 @@ async function compilePatientContext() {
 }
 
 // ─── Main AI Response ─────────────────────────────────────────────────────────
-async function getAIHealthResponse(userMessage) {
-  const patientContext = await compilePatientContext();
+async function getAIHealthResponse(userMessage, userId) {
+  const patientContext = await compilePatientContext(userId);
   const gemini = getGeminiClient();
 
   const systemInstruction = `

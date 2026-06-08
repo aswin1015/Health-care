@@ -38,6 +38,10 @@ export const historyAPI = {
   create: (data) => api.post('/history', data),
   update: (id, data) => api.put(`/history/${id}`, data),
   delete: (id) => api.delete(`/history/${id}`),
+  upload: (formData) => api.post('/history/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  getDocuments: () => api.get('/history/documents'), // OCR-processed docs from Cosmos DB
 };
 
 // ─── Appointments ───────────────────────────────────────────────────────────
@@ -63,6 +67,7 @@ export const statusAPI = {
 // ─── Activity Tracker ───────────────────────────────────────────────────────
 export const activityAPI = {
   getAll: () => api.get('/activities'),
+  getStats: () => api.get('/activities/stats'),
   create: (data) => api.post('/activities', data),
   update: (id, data) => api.put(`/activities/${id}`, data),
   delete: (id) => api.delete(`/activities/${id}`),

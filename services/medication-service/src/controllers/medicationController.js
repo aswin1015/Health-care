@@ -2,14 +2,14 @@ const { Medication, Caregiver, SystemStatus } = require('../models/models');
 
 const getMedications = async (req, res, next) => {
   try {
-    const meds = await Medication.find();
+    const meds = await Medication.find({ userId: req.userId });
     res.json(meds);
   } catch (err) { next(err); }
 };
 
 const createMedication = async (req, res, next) => {
   try {
-    const med  = new Medication({ ...req.body, missedCount: 0 });
+    const med  = new Medication({ ...req.body, userId: req.userId, missedCount: 0 });
     const saved = await med.save();
     res.status(201).json(saved);
   } catch (err) { next(err); }
@@ -18,7 +18,7 @@ const createMedication = async (req, res, next) => {
 const takeMedication = async (req, res, next) => {
   try {
     const { time } = req.body;
-    const med = await Medication.findById(req.params.id);
+    const med = await Medication.findOne({ _id: req.params.id, userId: req.userId });
     if (!med) return res.status(404).json({ error: 'Medication not found' });
 
     let updated = false;
@@ -38,7 +38,7 @@ const takeMedication = async (req, res, next) => {
 const missMedication = async (req, res, next) => {
   try {
     const { time } = req.body;
-    const med = await Medication.findById(req.params.id);
+    const med = await Medication.findOne({ _id: req.params.id, userId: req.userId });
     if (!med) return res.status(404).json({ error: 'Medication not found' });
 
     let updated = false;
@@ -53,9 +53,9 @@ const missMedication = async (req, res, next) => {
     await med.save();
 
     // Check caregiver alert threshold
-    const caregiver = await Caregiver.findOne();
+    const caregiver = await Caregiver.findOne({ userId: req.userId });
     if (caregiver && med.missedCount >= caregiver.alertThreshold) {
-      const status = (await SystemStatus.findOne()) || new SystemStatus();
+      const status = (await SystemStatus.findOne({ userId: req.userId })) || new SystemStatus({ userId: req.userId });
       status.caregiverAlerted = true;
       status.alertReason = `Patient missed ${med.name} (${med.dosage}) ${med.missedCount} times! Threshold: ${caregiver.alertThreshold}.`;
       status.lastNotificationSent = new Date().toISOString();
@@ -67,7 +67,7 @@ const missMedication = async (req, res, next) => {
 
 const resetAllMedications = async (req, res, next) => {
   try {
-    const meds = await Medication.find();
+    const meds = await Medication.find({ userId: req.userId });
     for (const med of meds) {
       med.schedules = med.schedules.map((s) => { s.taken = false; s.takenAt = undefined; return s; });
       med.missedCount = 0;

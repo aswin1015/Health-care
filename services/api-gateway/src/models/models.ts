@@ -9,6 +9,11 @@ const MedicalRecordSchema = new Schema<MedicalRecord>({
   title: { type: String, required: true },
   description: { type: String, required: true },
   notes: { type: String, required: false },
+  // Azure Blob Storage fields
+  blobUrl: { type: String, required: false },
+  blobName: { type: String, required: false },
+  processingStatus: { type: String, enum: ['none', 'pending', 'processed', 'failed'], default: 'none' },
+  extractedText: { type: String, required: false },
 }, { timestamps: true });
 
 export const MedicalRecordModel = model<MedicalRecord>('MedicalRecord', MedicalRecordSchema);
@@ -71,6 +76,7 @@ const SystemStatusSchema = new Schema<SystemStatus>({
 export const SystemStatusModel = model<SystemStatus>('SystemStatus', SystemStatusSchema);
 
 // ─── Activity Tracker (new) ───────────────────────────────────────────────────
+
 export interface IActivity {
   _id?: string;
   userId: Types.ObjectId | string;
@@ -80,6 +86,7 @@ export interface IActivity {
   caloriesBurned?: number;
   date: string;
   notes?: string;
+  intensity?: 'Low' | 'Medium' | 'High';
   createdAt?: Date;
 }
 
@@ -91,6 +98,7 @@ const ActivitySchema = new Schema<IActivity>({
   caloriesBurned: { type: Number, required: false },
   date: { type: String, required: true },
   notes: { type: String, required: false },
+  intensity: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium', required: false },
 }, { timestamps: true });
 
 export const ActivityModel = model<IActivity>('Activity', ActivitySchema);

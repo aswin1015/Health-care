@@ -16,7 +16,7 @@ COPY services/api-gateway/package*.json ./services/api-gateway/
 COPY services/api-gateway/tsconfig.json ./services/api-gateway/
 
 WORKDIR /workspace/services/api-gateway
-RUN npm ci
+RUN npm install
 
 # Copy source and compile
 COPY services/api-gateway/src/ ./src/
@@ -34,7 +34,7 @@ ENV PORT=5000
 
 # Install production deps only
 COPY services/api-gateway/package*.json ./
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Copy the full compiled dist tree from builder
 COPY --from=builder /workspace/services/api-gateway/dist ./dist

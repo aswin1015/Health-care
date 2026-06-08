@@ -8,6 +8,7 @@ import * as aiController from '../controllers/aiController';
 import * as authController from '../controllers/authController';
 import * as adminController from '../controllers/adminController';
 import * as activityController from '../controllers/activityController';
+import * as cosmosController from '../controllers/cosmosController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -24,6 +25,14 @@ router.get('/history', authMiddleware, historyController.getHistory);
 router.post('/history', authMiddleware, historyController.createHistory);
 router.put('/history/:id', authMiddleware, historyController.updateHistory);
 router.delete('/history/:id', authMiddleware, historyController.deleteHistory);
+
+// ─── File Upload (Azure Blob Storage) ───────────────────────────────────────
+import * as uploadController from '../controllers/uploadController';
+router.post('/history/upload', authMiddleware, uploadController.uploadMiddleware, uploadController.uploadHealthRecord);
+router.get('/history/upload/:id/status', authMiddleware, uploadController.getUploadStatus);
+
+// ─── Cosmos DB — OCR Processed Documents ──────────────────────────────────────
+router.get('/history/documents', authMiddleware, cosmosController.getProcessedDocuments);
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
 router.get('/appointments', authMiddleware, appointmentController.getAppointments);
@@ -50,6 +59,7 @@ router.post('/status/reset', authMiddleware, statusController.resetStatus);
 
 // ─── Activity Tracker ─────────────────────────────────────────────────────────
 router.get('/activities', authMiddleware, activityController.getActivities);
+router.get('/activities/stats', authMiddleware, activityController.getStats);
 router.post('/activities', authMiddleware, activityController.createActivity);
 router.put('/activities/:id', authMiddleware, activityController.updateActivity);
 router.delete('/activities/:id', authMiddleware, activityController.deleteActivity);

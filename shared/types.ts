@@ -6,6 +6,11 @@ export interface MedicalRecord {
   title: string;
   description: string;
   notes?: string;
+  // Azure Blob Storage fields
+  blobUrl?: string;
+  blobName?: string;
+  processingStatus?: 'none' | 'pending' | 'processed' | 'failed';
+  extractedText?: string;
   createdAt?: string;
 }
 

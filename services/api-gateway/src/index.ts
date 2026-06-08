@@ -4,6 +4,10 @@ import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+// Load environment variables FIRST, before importing any local modules that might read them
+dotenv.config();
+
 import apiRouter from './routes/index';
 import { errorHandler, notFound } from './middleware/errorHandler';
 import {
@@ -12,8 +16,6 @@ import {
   MedicationModel,
   SystemStatusModel,
 } from './models/models';
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);

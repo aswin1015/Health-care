@@ -3,7 +3,7 @@ import { AppointmentModel } from '../models/models';
 
 export const getAppointments = async (req: Request, res: Response) => {
   try {
-    const appointments = await AppointmentModel.find({ userId: req.userId }).sort({ dateTime: 1 });
+    const appointments = await AppointmentModel.find({ userId: req.userId });
     res.json(appointments);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
