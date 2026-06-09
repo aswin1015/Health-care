@@ -5,6 +5,9 @@ param (
 $acrUrl = "insurancecr.azurecr.io"
 Write-Host "Building and pushing images with tag: $Version"
 
+Write-Host "Logging into ACR..."
+az acr login --name insurancecr
+
 Write-Host "Building health-records-service..."
 docker build -t $acrUrl/aegis-health-records:$Version -f ./services/health-records-service/Dockerfile ./services/health-records-service
 Write-Host "Pushing health-records-service..."

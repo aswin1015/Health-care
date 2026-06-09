@@ -1,0 +1,15 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "<AZURE_STORAGE_CONNECTION_STRING>",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AZURE_STORAGE_CONNECTION_STRING": "<AZURE_STORAGE_CONNECTION_STRING>",
+    "FORM_RECOGNIZER_ENDPOINT": "https://aegis-docai-aswin3.cognitiveservices.azure.com/",
+    "FORM_RECOGNIZER_KEY": "<FORM_RECOGNIZER_KEY>",
+    "COSMOS_MONGODB_URI": "<COSMOS_MONGODB_URI_WITH_TEST_DB>",
+    "ACS_CONNECTION_STRING": "<ACS_CONNECTION_STRING>",
+    "ACS_SENDER_ADDRESS": "DoNotReply@c8e997ab-9edd-4288-8abd-922865066bf0.azurecomm.net",
+    "TEST_NOTIFICATION_EMAIL": "aswinas1015@gmail.com",
+    "APP_BASE_URL": "http://52.140.120.67"
+  }
+}

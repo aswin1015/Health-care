@@ -53,8 +53,8 @@ export const uploadHealthRecord = async (req: Request, res: Response) => {
       const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
       const containerClient = blobServiceClient.getContainerClient(AZURE_CONTAINER_NAME);
 
-      // Ensure container exists
-      await containerClient.createIfNotExists({ access: 'blob' });
+      // Ensure container exists (private — storage account has public access disabled)
+      await containerClient.createIfNotExists();
 
       const ext = req.file.originalname.split('.').pop();
       blobName = `${userId}/${uuidv4()}.${ext}`;
