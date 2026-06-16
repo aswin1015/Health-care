@@ -1,41 +1,46 @@
-param (
-    [string]$Version = (Get-Date -Format "yyyyMMdd-HHmmss")
+<#
+.SYNOPSIS
+    Build and push all Aegis Health Docker images to Azure Container Registry.
+.USAGE
+    .\build_and_push.ps1 -AcrName "aegisacr1234"
+#>
+
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$AcrName
 )
 
-$acrUrl = "insurancecr.azurecr.io"
-Write-Host "Building and pushing images with tag: $Version"
+$ErrorActionPreference = "Stop"
+$ROOT = $PSScriptRoot
 
-Write-Host "Logging into ACR..."
-az acr login --name insurancecr
+function Write-Step($msg) { Write-Host "`n🔷 $msg" -ForegroundColor Cyan }
+function Write-OK($msg)   { Write-Host "  ✅ $msg" -ForegroundColor Green }
 
-Write-Host "Building health-records-service..."
-docker build -t $acrUrl/aegis-health-records:$Version -f ./services/health-records-service/Dockerfile ./services/health-records-service
-Write-Host "Pushing health-records-service..."
-docker push $acrUrl/aegis-health-records:$Version
+Write-Step "Logging into ACR: $AcrName"
+az acr login --name $AcrName
+$ACR_SERVER = (az acr show --name $AcrName --query loginServer -o tsv)
+Write-OK "ACR Server: $ACR_SERVER"
 
-Write-Host "Building medication-service..."
-docker build -t $acrUrl/aegis-medication:$Version -f ./services/medication-service/Dockerfile ./services/medication-service
-Write-Host "Pushing medication-service..."
-docker push $acrUrl/aegis-medication:$Version
+$IMAGES = @(
+    # (Name, BuildContext, Dockerfile)
+    @("api-gateway",              ".",                                    "services/api-gateway/Dockerfile"),
+    @("health-records-service",   ".",                                    "services/health-records-service/Dockerfile"),
+    @("medication-service",       ".",                                    "services/medication-service/Dockerfile"),
+    @("ai-service",               ".",                                    "services/ai-service/Dockerfile"),
+    @("notification-worker",      ".",                                    "services/notification-worker/Dockerfile"),
+    @("imaging-service",          "services/imaging-service",             "services/imaging-service/Dockerfile"),
+    @("diagnostic-agent-service", "services/diagnostic-agent-service",   "services/diagnostic-agent-service/Dockerfile"),
+    @("client",                   ".",                                    "client/Dockerfile")
+)
 
-Write-Host "Building api-gateway..."
-docker build -t $acrUrl/aegis-api-gateway:$Version -f ./services/api-gateway/Dockerfile .
-Write-Host "Pushing api-gateway..."
-docker push $acrUrl/aegis-api-gateway:$Version
+foreach ($img in $IMAGES) {
+    $name = $img[0]; $ctx = $img[1]; $df = $img[2]
+    $tag  = "$ACR_SERVER/${name}:latest"
+    Write-Step "[$name] Building..."
+    docker build -t $tag -f (Join-Path $ROOT $df) (Join-Path $ROOT $ctx)
+    Write-Step "[$name] Pushing to ACR..."
+    docker push $tag
+    Write-OK "$name → $tag"
+}
 
-Write-Host "Building ai-service..."
-docker build -t $acrUrl/aegis-ai:$Version -f ./services/ai-service/Dockerfile ./services/ai-service
-Write-Host "Pushing ai-service..."
-docker push $acrUrl/aegis-ai:$Version
-
-Write-Host "Building notification-worker..."
-docker build -t $acrUrl/aegis-notification-worker:$Version -f ./services/notification-worker/Dockerfile ./services/notification-worker
-Write-Host "Pushing notification-worker..."
-docker push $acrUrl/aegis-notification-worker:$Version
-
-Write-Host "Building client..."
-docker build -t $acrUrl/aegis-client:$Version -f ./client/Dockerfile .
-Write-Host "Pushing client..."
-docker push $acrUrl/aegis-client:$Version
-
-Write-Host "All images built and pushed successfully with tag: $Version"
+Write-Host "`n🎉 All images pushed to $ACR_SERVER" -ForegroundColor Green

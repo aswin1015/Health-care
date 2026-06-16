@@ -20,6 +20,7 @@ import ChatAssistant from './pages/patient/ChatAssistant';
 import Notifications from './pages/patient/Notifications';
 import HealthAnalytics from './pages/patient/HealthAnalytics';
 import ActivityTracker from './pages/patient/ActivityTracker';
+import MedicalImaging from './pages/patient/MedicalImaging';
 import Settings from './pages/Settings';
 
 import Layout from './components/Layout';
@@ -64,6 +65,9 @@ function AppRoutes() {
         } />
         <Route path="/patient/activity" element={
           <ProtectedRoute allowedRole="patient"><ActivityTracker /></ProtectedRoute>
+        } />
+        <Route path="/patient/imaging" element={
+          <ProtectedRoute allowedRole="patient"><MedicalImaging /></ProtectedRoute>
         } />
         <Route path="/patient/chat" element={
           <ProtectedRoute allowedRole="patient"><ChatAssistant /></ProtectedRoute>

@@ -41,7 +41,7 @@ export const historyAPI = {
   upload: (formData) => api.post('/history/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
-  getDocuments: () => api.get('/history/documents'), // OCR-processed docs from Cosmos DB
+  getDocuments: () => api.get('/history/documents'),
 };
 
 // ─── Appointments ───────────────────────────────────────────────────────────
@@ -73,9 +73,31 @@ export const activityAPI = {
   delete: (id) => api.delete(`/activities/${id}`),
 };
 
-// ─── AI Chat ────────────────────────────────────────────────────────────────
+// ─── AI Health Agent (Agent 1 — General Health) ──────────────────────────────
 export const aiAPI = {
   chat: (message) => api.post('/ai/chat', { message }),
+};
+
+// ─── Medical Imaging FastAPI (PostgreSQL + Azure Blob Storage) ───────────────
+export const imagingAPI = {
+  upload: (userId, file) => {
+    const fd = new FormData();
+    fd.append('user_id', userId);
+    fd.append('file', file);
+    return api.post('/imaging/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getUserImages: (userId) => api.get(`/imaging/user/${userId}`),
+};
+
+// ─── Diagnostic Agent FastAPI (Agent 2 — Azure AI Foundry Vision) ────────────
+export const diagnosticsAPI = {
+  analyze: (imageUrl, patientContext) =>
+    api.post('/diagnostics/analyze', {
+      image_url: imageUrl,
+      patient_context: patientContext,
+    }),
 };
 
 // ─── Admin User Management ──────────────────────────────────────────────────

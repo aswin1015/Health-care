@@ -10,6 +10,7 @@ export default function Sidebar() {
     patient: [
       { name: 'Dashboard', path: '/patient', icon: '📊' },
       { name: 'Medical Records', path: '/patient/records', icon: '📁' },
+      { name: 'Medical Imaging', path: '/patient/imaging', icon: '🩻' },
       { name: 'Medications', path: '/patient/medications', icon: '💊' },
       { name: 'Appointments', path: '/patient/appointments', icon: '📅' },
       { name: 'Activity Tracker', path: '/patient/activity', icon: '🏃' },

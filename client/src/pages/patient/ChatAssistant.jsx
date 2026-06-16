@@ -4,7 +4,7 @@ import { useToast } from '../../context/ToastContext';
 
 export default function ChatAssistant() {
   const [messages, setMessages] = useState([
-    { sender: 'ai', text: 'Hello! I am **Aegis**, your AI Health Assistant powered by **Gemini Pro**.\n\nI have access to your live health records, medications, and appointments. Ask me anything about your health today!', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+    { sender: 'ai', text: 'Hello! I am **Aegis**, your AI Health Assistant powered by **Azure AI Foundry**.\n\nI have access to your live health records, medications, and appointments. Ask me anything about your health today!', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +38,7 @@ export default function ChatAssistant() {
     } catch {
       setMessages(prev => [
         ...prev.filter(m => !m.isTyping),
-        { sender: 'ai', text: '⚠️ Sorry, I was unable to reach the AI engine. Please ensure the backend server is running and your Gemini API key is configured.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+        { sender: 'ai', text: '⚠️ Sorry, I was unable to reach the AI engine. Please ensure the backend server is running and the AI service is configured.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
       ]);
     } finally {
       setIsLoading(false);
@@ -106,11 +106,11 @@ export default function ChatAssistant() {
       <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>AI Health Assistant</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Powered by Gemini Pro with live access to your health data.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Agent 1 — Powered by Azure AI with live access to your health data.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(20, 184, 166, 0.1)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid rgba(20, 184, 166, 0.2)' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-teal)', animation: 'pulse 2s infinite' }}></div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--accent-teal)', fontWeight: '600' }}>Gemini Pro Active</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--accent-teal)', fontWeight: '600' }}>Azure AI Active</span>
         </div>
       </div>
 

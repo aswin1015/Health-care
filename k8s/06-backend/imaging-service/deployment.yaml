@@ -1,20 +1,24 @@
+# ─── Imaging Service Deployment ───────────────────────────────────────────────
+# FastAPI microservice. Stores images in Azure Blob Storage; metadata in PostgreSQL.
+# Azure Blob Storage connection string comes from Key Vault.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: health-records-service
+  name: imaging-service
   namespace: aegis
   labels:
-    app: health-records-service
+    app: imaging-service
     app.kubernetes.io/part-of: aegis-health
+    tier: fastapi
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: health-records-service
+      app: imaging-service
   template:
     metadata:
       labels:
-        app: health-records-service
+        app: imaging-service
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: aegis-workload-identity
@@ -26,11 +30,11 @@ spec:
             volumeAttributes:
               secretProviderClass: aegis-kv-secret-provider
       containers:
-        - name: health-records-service
-          image: __ACR_NAME__.azurecr.io/health-records-service:latest
+        - name: imaging-service
+          image: __ACR_NAME__.azurecr.io/imaging-service:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 5001
+            - containerPort: 5004
               name: http
           volumeMounts:
             - name: secrets-store
@@ -41,37 +45,38 @@ spec:
                 name: aegis-kv-secrets
             - configMapRef:
                 name: aegis-config
-          env:
-            - name: PORT
-              value: "5001"
           readinessProbe:
-            tcpSocket:
-              port: 5001
-            initialDelaySeconds: 10
+            httpGet:
+              path: /health
+              port: 5004
+            initialDelaySeconds: 15
             periodSeconds: 10
           livenessProbe:
-            tcpSocket:
-              port: 5001
-            initialDelaySeconds: 20
-            periodSeconds: 15
+            httpGet:
+              path: /health
+              port: 5004
+            initialDelaySeconds: 30
+            periodSeconds: 20
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "400m"
+              cpu: "150m"
               memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: health-records-service
+  name: imaging-service
   namespace: aegis
+  labels:
+    app: imaging-service
 spec:
   selector:
-    app: health-records-service
+    app: imaging-service
   ports:
-    - port: 5001
-      targetPort: 5001
+    - port: 5004
+      targetPort: 5004
       name: http
   type: ClusterIP

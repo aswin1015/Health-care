@@ -10,8 +10,69 @@ import * as adminController from '../controllers/adminController';
 import * as activityController from '../controllers/activityController';
 import * as cosmosController from '../controllers/cosmosController';
 import { authMiddleware } from '../middleware/authMiddleware';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const router = Router();
+
+const IMAGING_URL = process.env.IMAGING_SERVICE_URL || 'http://imaging-service:5004';
+const DIAGNOSTICS_URL = process.env.DIAGNOSTICS_SERVICE_URL || 'http://diagnostic-agent-service:5005';
+
+import * as http from 'http';
+import * as https from 'https';
+
+// ─── Imaging Upload — pipe multipart body directly to FastAPI ─────────────────
+router.post('/imaging/upload', authMiddleware, (req: any, res: any) => {
+    const targetUrl = new URL(`${IMAGING_URL}/upload`);
+    const isHttps = targetUrl.protocol === 'https:';
+    const lib = isHttps ? https : http;
+    const options = {
+        hostname: targetUrl.hostname,
+        port: targetUrl.port || (isHttps ? 443 : 80),
+        path: '/upload',
+        method: 'POST',
+        headers: {
+            ...req.headers,
+            host: targetUrl.host,
+        },
+    };
+    const proxyReq = lib.request(options, (proxyRes) => {
+        res.status(proxyRes.statusCode || 500);
+        Object.entries(proxyRes.headers).forEach(([k, v]) => {
+            if (v !== undefined) res.setHeader(k, v as string);
+        });
+        proxyRes.pipe(res, { end: true });
+    });
+    proxyReq.on('error', (e: any) => {
+        res.status(502).json({ error: 'Imaging service unavailable', details: e.message });
+    });
+    req.pipe(proxyReq, { end: true });
+});
+
+// ─── Imaging GET user images ──────────────────────────────────────────────────
+router.get('/imaging/user/:userId', authMiddleware, async (req: any, res: any) => {
+    try {
+        const r = await fetch(`${IMAGING_URL}/user/${req.params.userId}`);
+        const data = await r.json();
+        res.status(r.status).json(data);
+    } catch (e: any) {
+        res.status(502).json({ error: 'Imaging service unavailable', details: e.message });
+    }
+});
+
+// ─── Diagnostic Agent Analyze — direct fetch (body-parser already consumed JSON body) ──
+router.post('/diagnostics/analyze', authMiddleware, async (req: any, res: any) => {
+    try {
+        const r = await fetch(`${DIAGNOSTICS_URL}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body),
+        });
+        const data = await r.json();
+        res.status(r.status).json(data);
+    } catch (e: any) {
+        res.status(502).json({ error: 'Diagnostic service unavailable', details: e.message });
+    }
+});
 
 // ─── Auth (public) ────────────────────────────────────────────────────────────
 router.post('/auth/register', authController.register);

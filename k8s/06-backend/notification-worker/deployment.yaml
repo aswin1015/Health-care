@@ -2,9 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notification-worker
+  namespace: aegis
   labels:
-    app: aegis
-    tier: background
+    app: notification-worker
+    app.kubernetes.io/part-of: aegis-health
 spec:
   replicas: 1
   selector:
@@ -14,22 +15,33 @@ spec:
     metadata:
       labels:
         app: notification-worker
+        azure.workload.identity/use: "true"
     spec:
-      serviceAccountName: aegis-notification-worker
+      serviceAccountName: aegis-workload-identity
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: aegis-kv-secret-provider
       containers:
         - name: notification-worker
-          image: aegis-notification-worker:latest
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: MONGODB_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: aegis-config
-                  key: MONGODB_URI
+          image: __ACR_NAME__.azurecr.io/notification-worker:latest
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          envFrom:
+            - secretRef:
+                name: aegis-kv-secrets
+            - configMapRef:
+                name: aegis-config
           resources:
-            limits:
-              cpu: "300m"
-              memory: "128Mi"
             requests:
               cpu: "50m"
               memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
