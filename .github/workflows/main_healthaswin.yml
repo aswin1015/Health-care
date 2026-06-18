@@ -1,6 +1,6 @@
-<<<<<<< HEAD
-# ─── Aegis Health — Build & Deploy to Azure App Service (Multi-Container) ─────
-# Builds all microservice images, pushes to ACR, then deploys via Docker Compose.
+# ─── Aegis Health — Build & Deploy (Multi-Container + Multi-Agent Layer) ──────
+# Builds all microservice images including the 3 new agent services,
+# pushes to ACR, then deploys manifests to AKS.
 
 name: Build and deploy Aegis Health to Azure App Service
 
@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
 
 env:
-  ACR_NAME: ${{ secrets.ACR_NAME }}                   # e.g. aegishealthcr
-  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}    # e.g. aegishealthcr.azurecr.io
-  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }} # e.g. aegis-health-app
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
@@ -38,6 +38,8 @@ jobs:
 
       - name: Login to Azure Container Registry
         run: az acr login --name ${{ env.ACR_NAME }}
+
+      # ── Existing services (unchanged) ────────────────────────────────────────
 
       - name: Build and push — API Gateway
         run: |
@@ -81,64 +83,31 @@ jobs:
                         -f ./client/Dockerfile .
           docker push ${{ env.ACR_LOGIN_SERVER }}/aegis-client --all-tags
 
-      # Generate a deploy-ready compose file that points to ACR images
-      - name: Generate deployment docker-compose
+      # ── Multi-Agent Layer (NEW) ───────────────────────────────────────────────
+
+      - name: Build and push — Coordinator Agent
         run: |
-          cat > docker-compose.deploy.yml << 'COMPOSE'
-          services:
-            api-gateway:
-              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-api-gateway:${{ github.sha }}
-              ports:
-                - "5000:5000"
-              environment:
-                PORT: 5000
-                MONGODB_URI: ${MONGODB_URI}
-                JWT_SECRET: ${JWT_SECRET}
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/coordinator-agent:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/coordinator-agent:latest \
+                        -f ./services/coordinator-agent/Dockerfile ./services/coordinator-agent
+          docker push ${{ env.ACR_LOGIN_SERVER }}/coordinator-agent --all-tags
 
-            health-records-service:
-              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-health-records:${{ github.sha }}
-              ports:
-                - "5001:5001"
-              environment:
-                PORT: 5001
-                MONGODB_URI: ${MONGODB_URI}
+      - name: Build and push — Image Analysis Agent
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/image-analysis-agent:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/image-analysis-agent:latest \
+                        -f ./services/image-analysis-agent/Dockerfile ./services/image-analysis-agent
+          docker push ${{ env.ACR_LOGIN_SERVER }}/image-analysis-agent --all-tags
 
-            medication-service:
-              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-medication:${{ github.sha }}
-              ports:
-                - "5002:5002"
-              environment:
-                PORT: 5002
-                MONGODB_URI: ${MONGODB_URI}
-
-            ai-service:
-              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-ai:${{ github.sha }}
-              ports:
-                - "5003:5003"
-              environment:
-                PORT: 5003
-                MONGODB_URI: ${MONGODB_URI}
-                GEMINI_API_KEY: ${GEMINI_API_KEY}
-
-            notification-worker:
-              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-notification-worker:${{ github.sha }}
-              environment:
-                MONGODB_URI: ${MONGODB_URI}
-
-            client:
-              image: ${{ env.ACR_LOGIN_SERVER }}/aegis-client:${{ github.sha }}
-              ports:
-                - "80:80"
-          COMPOSE
-
-      - name: Upload deployment compose file
-        uses: actions/upload-artifact@v4
-        with:
-          name: deploy-compose
-          path: docker-compose.deploy.yml
+      - name: Build and push — Patient History Agent
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/patient-history-agent:${{ github.sha }} \
+                        -t ${{ env.ACR_LOGIN_SERVER }}/patient-history-agent:latest \
+                        -f ./services/patient-history-agent/Dockerfile ./services/patient-history-agent
+          docker push ${{ env.ACR_LOGIN_SERVER }}/patient-history-agent --all-tags
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Stage 2 — Deploy to Azure App Service (Multi-Container)
+  # Stage 2 — Deploy to AKS (apply updated manifests)
   # ────────────────────────────────────────────────────────────────────────────
   deploy:
     runs-on: ubuntu-latest
@@ -148,10 +117,8 @@ jobs:
       contents: read
 
     steps:
-      - name: Download deployment compose file
-        uses: actions/download-artifact@v4
-        with:
-          name: deploy-compose
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -160,75 +127,31 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Web App (Multi-Container)
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          configuration-file: docker-compose.deploy.yml
-=======
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js app to Azure Web App - healthaswin
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js version
-        uses: actions/setup-node@v3
-        with:
-          node-version: '22.x'
-
-      - name: npm install, build, and test
+      - name: Set AKS context
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          az aks get-credentials \
+            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --overwrite-existing
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .
+      - name: Substitute ACR name in manifests
+        run: |
+          find k8s/06-backend -name "*.yaml" \
+            -exec sed -i "s/__ACR_NAME__/${{ env.ACR_NAME }}/g" {} \;
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      - name: Apply agent manifests
+        run: |
+          kubectl apply -f k8s/06-backend/coordinator-agent/deployment.yaml
+          kubectl apply -f k8s/06-backend/image-analysis-agent/deployment.yaml
+          kubectl apply -f k8s/06-backend/patient-history-agent/deployment.yaml
 
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_4A4A4527A62E404889E5BF86B8CBB3FA }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_93E2D12D47D343528D6743EF05C34AEC }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_9DF02F6031E546B1B3EB2DC87D3312E6 }}
+      - name: Restart existing deployments (pick up new api-gateway image)
+        run: |
+          kubectl rollout restart deployment/api-gateway -n aegis
+          kubectl rollout restart deployment/aegis-client -n aegis
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'healthaswin'
-          slot-name: 'Production'
-          package: .
-          
->>>>>>> 559a853e2380baeb75df4099258d901eae75a597
+      - name: Verify agent rollout
+        run: |
+          kubectl rollout status deployment/coordinator-agent -n aegis --timeout=120s
+          kubectl rollout status deployment/image-analysis-agent -n aegis --timeout=120s
+          kubectl rollout status deployment/patient-history-agent -n aegis --timeout=120s

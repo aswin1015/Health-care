@@ -129,7 +129,11 @@ $IMAGES = @(
     @{ Name = "notification-worker";     Context = ".";                                Dockerfile = "services/notification-worker/Dockerfile" },
     @{ Name = "imaging-service";         Context = "services/imaging-service";         Dockerfile = "services/imaging-service/Dockerfile" },
     @{ Name = "diagnostic-agent-service"; Context = "services/diagnostic-agent-service"; Dockerfile = "services/diagnostic-agent-service/Dockerfile" },
-    @{ Name = "client";                  Context = ".";                                Dockerfile = "client/Dockerfile" }
+    @{ Name = "client";                  Context = ".";                                Dockerfile = "client/Dockerfile" },
+    # ── Multi-Agent Layer ────────────────────────────────────────────────────────
+    @{ Name = "coordinator-agent";       Context = "services/coordinator-agent";       Dockerfile = "services/coordinator-agent/Dockerfile" },
+    @{ Name = "image-analysis-agent";    Context = "services/image-analysis-agent";    Dockerfile = "services/image-analysis-agent/Dockerfile" },
+    @{ Name = "patient-history-agent";   Context = "services/patient-history-agent";   Dockerfile = "services/patient-history-agent/Dockerfile" }
 )
 
 foreach ($img in $IMAGES) {
@@ -285,6 +289,10 @@ $manifestOrder = @(
     "06-backend\notification-worker\deployment.yaml",
     "06-backend\imaging-service\deployment.yaml",
     "06-backend\diagnostic-agent\deployment.yaml",
+    # ── Multi-Agent Layer ────────────────────────────────────────────────────────
+    "06-backend\coordinator-agent\deployment.yaml",
+    "06-backend\image-analysis-agent\deployment.yaml",
+    "06-backend\patient-history-agent\deployment.yaml",
     "07-frontend\nginx-configmap.yaml",
     "07-frontend\deployment.yaml",
     "08-gateway\gateway.yaml",

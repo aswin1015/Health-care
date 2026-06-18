@@ -11,6 +11,7 @@ export default function Sidebar() {
       { name: 'Dashboard', path: '/patient', icon: '📊' },
       { name: 'Medical Records', path: '/patient/records', icon: '📁' },
       { name: 'Medical Imaging', path: '/patient/imaging', icon: '🩻' },
+      { name: 'Multi-Agent Analysis', path: '/patient/agent-analysis', icon: '🤖' },
       { name: 'Medications', path: '/patient/medications', icon: '💊' },
       { name: 'Appointments', path: '/patient/appointments', icon: '📅' },
       { name: 'Activity Tracker', path: '/patient/activity', icon: '🏃' },

@@ -31,6 +31,7 @@ export interface MedicationSchedule {
 
 export interface Medication {
   id?: string;
+  userId: any;
   name: string;
   dosage: string;
   frequency: string;
@@ -43,6 +44,7 @@ export interface Medication {
 }
 
 export interface Caregiver {
+  userId: any;
   name: string;
   relationship: string;
   phone: string;
@@ -51,9 +53,11 @@ export interface Caregiver {
 }
 
 export interface SystemStatus {
+  userId: any;
   caregiverAlerted: boolean;
   alertReason?: string;
   lastNotificationSent?: string;
+  lastResetDate?: string;
 }
 
 export interface ChatMessage {

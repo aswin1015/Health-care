@@ -16,7 +16,11 @@ export default function Settings() {
 
   useEffect(() => {
     caregiverAPI.get()
-      .then(res => setCaregiver(res.data))
+      .then(res => {
+        if (res.data && typeof res.data === 'object') {
+          setCaregiver(prev => ({ ...prev, ...res.data }));
+        }
+      })
       .catch(() => addToast('Could not load caregiver settings.', 'error'))
       .finally(() => setLoadingCaregiver(false));
   }, []);

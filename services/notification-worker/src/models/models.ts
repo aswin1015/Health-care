@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, Types } from 'mongoose';
 import { MedicalRecord, Appointment, Medication, Caregiver, SystemStatus } from '../types';
 
 // Medical Record Schema
@@ -38,6 +38,7 @@ const MedicationScheduleSchema = new Schema({
 
 // Medication Schema
 const MedicationSchema = new Schema<Medication>({
+  userId: { type: Schema.Types.ObjectId, required: true, index: true },
   name: { type: String, required: true },
   dosage: { type: String, required: true },
   frequency: { type: String, required: true },
@@ -53,6 +54,7 @@ export const MedicationModel = model<Medication>('Medication', MedicationSchema)
 
 // Caregiver Configuration Schema
 const CaregiverSchema = new Schema<Caregiver>({
+  userId: { type: Schema.Types.ObjectId, required: true, index: true },
   name: { type: String, required: true },
   relationship: { type: String, required: true },
   phone: { type: String, required: true },
@@ -64,9 +66,11 @@ export const CaregiverModel = model<Caregiver>('Caregiver', CaregiverSchema);
 
 // System Status Schema
 const SystemStatusSchema = new Schema<SystemStatus>({
+  userId: { type: Schema.Types.ObjectId, required: true, index: true },
   caregiverAlerted: { type: Boolean, default: false, required: true },
   alertReason: { type: String, required: false },
-  lastNotificationSent: { type: String, required: false }
+  lastNotificationSent: { type: String, required: false },
+  lastResetDate: { type: String, required: false },
 });
 
 export const SystemStatusModel = model<SystemStatus>('SystemStatus', SystemStatusSchema);

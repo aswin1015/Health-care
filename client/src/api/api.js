@@ -1,61 +1,71 @@
-import axios from 'axios';
-
-// All API calls are relative — Vite proxy (dev) and nginx (prod) forward /api → api-gateway:5000
-const API_URL = '';
+/**
+ * api/api.js — Thin wrappers used by older dashboard components.
+ *
+ * NOTE: This file re-exports from services/api.js for all calls that need auth.
+ * The `api` instance from services/api.js has the JWT interceptor attached.
+ * Do NOT use raw `axios` here — it won't send the Bearer token.
+ */
+import api from '../services/api';
 
 // ─── Medical History ──────────────────────────────────────────────────────────
 
 export const getHistory = () =>
-  axios.get(`${API_URL}/api/history`).then((r) => r.data);
+  api.get('/history').then((r) => r.data);
 
 export const addHistory = (payload) =>
-  axios.post(`${API_URL}/api/history`, payload).then((r) => r.data);
+  api.post('/history', payload).then((r) => r.data);
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
 
 export const getAppointments = () =>
-  axios.get(`${API_URL}/api/appointments`).then((r) => r.data);
+  api.get('/appointments').then((r) => r.data);
 
 export const addAppointment = (payload) =>
-  axios.post(`${API_URL}/api/appointments`, payload).then((r) => r.data);
+  api.post('/appointments', payload).then((r) => r.data);
 
 // ─── Medications ──────────────────────────────────────────────────────────────
 
 export const getMedications = () =>
-  axios.get(`${API_URL}/api/medications`).then((r) => r.data);
+  api.get('/medications').then((r) => r.data);
 
 export const addMedication = (payload) =>
-  axios.post(`${API_URL}/api/medications`, payload).then((r) => r.data);
+  api.post('/medications', payload).then((r) => r.data);
 
 export const takeMedication = (medId, time) =>
-  axios.post(`${API_URL}/api/medications/${medId}/take`, { time }).then((r) => r.data);
+  api.post(`/medications/${medId}/take`, { time }).then((r) => r.data);
 
 export const missMedication = (medId, time) =>
-  axios.post(`${API_URL}/api/medications/${medId}/miss`, { time }).then((r) => r.data);
+  api.post(`/medications/${medId}/miss`, { time }).then((r) => r.data);
 
 export const resetMedications = () =>
-  axios.post(`${API_URL}/api/medications/reset-all`).then((r) => r.data);
+  api.post('/medications/reset-all').then((r) => r.data);
 
 // ─── Caregiver ────────────────────────────────────────────────────────────────
 
 export const getCaregiver = () =>
-  axios.get(`${API_URL}/api/caregiver`).then((r) => r.data);
+  api.get('/caregiver').then((r) => r.data);
 
 export const updateCaregiver = (payload) =>
-  axios.post(`${API_URL}/api/caregiver`, payload).then((r) => r.data);
+  api.post('/caregiver', payload).then((r) => r.data);
 
 // ─── System Status ────────────────────────────────────────────────────────────
 
 export const getStatus = () =>
-  axios.get(`${API_URL}/api/status`).then((r) => r.data);
+  api.get('/status').then((r) => r.data);
 
 export const resetStatus = () =>
-  axios.post(`${API_URL}/api/status/reset`).then((r) => r.data);
+  api.post('/status/reset').then((r) => r.data);
 
 // ─── AI Chat ──────────────────────────────────────────────────────────────────
 
 export const sendChatMessage = (message) =>
-  axios.post(`${API_URL}/api/ai/chat`, { message }).then((r) => r.data);
+  api.post('/ai/chat', { message }).then((r) => r.data);
+
+// ─── Multi-Agent Analysis ─────────────────────────────────────────────────────
+// Uses the authenticated api instance — JWT token is auto-attached by interceptor.
+
+export const runAgentAnalysis = (query) =>
+  api.post('/agents/analyze', { query }).then((r) => r.data);
 
 // ─── Batch fetch all dashboard data ──────────────────────────────────────────
 

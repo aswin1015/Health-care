@@ -128,6 +128,10 @@ router.delete('/activities/:id', authMiddleware, activityController.deleteActivi
 // ─── AI Chat ──────────────────────────────────────────────────────────────────
 router.post('/ai/chat', authMiddleware, aiController.handleChat);
 
+// ─── Multi-Agent Analysis ─────────────────────────────────────────────────────
+import * as agentController from '../controllers/agentController';
+router.post('/agents/analyze', authMiddleware, agentController.handleAgentAnalysis);
+
 // ─── Admin User Management ────────────────────────────────────────────────────
 router.get('/admin/users', authMiddleware, adminController.getAllUsers);
 router.get('/admin/caregivers', authMiddleware, adminController.getCaregivers);

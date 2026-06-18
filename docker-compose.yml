@@ -9,8 +9,8 @@ services:
     image: mongo:7.0
     container_name: aegis-mongodb
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+    # No host port binding — agents connect via internal aegis-net (mongodb:27017)
+    # External port 27017 already used by mono-insurance-mongo on this host
     volumes:
       - mongo_data:/data/db
     environment:
@@ -107,6 +107,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-aegis_super_secret_key_change_in_production}
       IMAGING_SERVICE_URL: http://imaging-service:5004
       DIAGNOSTICS_SERVICE_URL: http://diagnostic-agent-service:5005
+      COORDINATOR_AGENT_URL: http://coordinator-agent:8000
     depends_on:
       mongodb:
         condition: service_healthy
@@ -141,6 +142,11 @@ services:
     restart: unless-stopped
     environment:
       MONGODB_URI: mongodb://mongodb:27017/ai-health-agent
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      TZ: Asia/Kolkata
     depends_on:
       mongodb:
         condition: service_healthy
@@ -198,8 +204,88 @@ services:
       - api-gateway
       - imaging-service
       - diagnostic-agent-service
+      - coordinator-agent
+      - image-analysis-agent
+      - patient-history-agent
     networks:
       - aegis-net
+
+  # ─── Multi-Agent Layer ────────────────────────────────────────────────────
+
+  # ── Coordinator Agent (port 8000) ─────────────────────────────────────────
+  coordinator-agent:
+    build:
+      context: ./services/coordinator-agent
+      dockerfile: Dockerfile
+    container_name: aegis-coordinator-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      AZURE_AI_ENDPOINT: ${AZURE_AI_ENDPOINT:-}
+      AZURE_AI_KEY: ${AZURE_AI_KEY:-}
+      IMAGE_ANALYSIS_AGENT_URL: http://image-analysis-agent:8001
+      PATIENT_HISTORY_AGENT_URL: http://patient-history-agent:8002
+    depends_on:
+      - image-analysis-agent
+      - patient-history-agent
+    networks:
+      - aegis-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Image Analysis Agent (port 8001) ──────────────────────────────────────
+  image-analysis-agent:
+    build:
+      context: ./services/image-analysis-agent
+      dockerfile: Dockerfile
+    container_name: aegis-image-analysis-agent
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/ai-health-agent
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Patient History Agent (port 8002) ─────────────────────────────────────
+  patient-history-agent:
+    build:
+      context: ./services/patient-history-agent
+      dockerfile: Dockerfile
+    container_name: aegis-patient-history-agent
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/ai-health-agent
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/aegis_imaging
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - aegis-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 # ─── Volumes & Network ────────────────────────────────────────────────────────
 volumes:
