@@ -89,6 +89,8 @@ export const imagingAPI = {
     });
   },
   getUserImages: (userId) => api.get(`/imaging/user/${userId}`),
+  updateStatus: (imageId, status, diagnosticReport = null) =>
+    api.patch(`/imaging/${imageId}/status`, { status, diagnostic_report: diagnosticReport }),
 };
 
 // ─── Diagnostic Agent FastAPI (Agent 2 — Azure AI Foundry Vision) ────────────

@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from src.database import SessionLocal, engine, Base, ImageRecord
 from azure.storage.blob import BlobServiceClient
@@ -13,6 +15,16 @@ if os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"):
         print(f"Warning: Failed to configure Azure Monitor: {e}")
 
 Base.metadata.create_all(bind=engine)
+
+# Add diagnostic_report column to existing tables (safe for dev restarts)
+try:
+    with engine.connect() as conn:
+        conn.execute(text(
+            "ALTER TABLE image_records ADD COLUMN IF NOT EXISTS diagnostic_report TEXT"
+        ))
+        conn.commit()
+except Exception:
+    pass  # Column already exists or DB not ready yet
 
 app = FastAPI(title="Imaging Service — Aegis Health")
 
@@ -60,6 +72,7 @@ def record_to_dict(rec: ImageRecord):
         "blob_url": rec.blob_url,
         "uploaded_at": rec.uploaded_at.isoformat() if rec.uploaded_at else None,
         "status": rec.status,
+        "diagnostic_report": rec.diagnostic_report,
     }
 
 
@@ -106,6 +119,25 @@ async def upload_image(
     print(f"✅ PostgreSQL record created: id={db_image.id}")
 
     return {"message": "Image uploaded successfully", "record": record_to_dict(db_image)}
+
+
+class StatusUpdate(BaseModel):
+    status: str
+    diagnostic_report: str | None = None
+
+
+@app.patch("/image/{image_id}/status")
+def update_image_status(image_id: int, body: StatusUpdate, db: Session = Depends(get_db)):
+    """Update the status (and optionally the diagnostic report) of an image record."""
+    record = db.query(ImageRecord).filter(ImageRecord.id == image_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Image not found")
+    record.status = body.status
+    if body.diagnostic_report is not None:
+        record.diagnostic_report = body.diagnostic_report
+    db.commit()
+    db.refresh(record)
+    return record_to_dict(record)
 
 
 @app.get("/user/{user_id}")

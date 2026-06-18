@@ -182,6 +182,24 @@ def build_prompt(query: str, image_data: dict, history_data: dict) -> str:
     else:
         hist_parts.append("\nAppointments: None scheduled.")
 
+    img_records = history_data.get("image_records", [])
+    if img_records:
+        hist_parts.append(f"\nUploaded Imaging Scans ({len(img_records)}) from PostgreSQL:")
+        for img in img_records:
+            report_text = img.get("diagnostic_report") or ""
+            report_snippet = (
+                report_text[:800] + ("..." if len(report_text) > 800 else "")
+                if report_text else "No diagnostic report available yet."
+            )
+            hist_parts.append(
+                f"  - {img.get('filename', 'Unknown')} "
+                f"| Uploaded: {img.get('uploaded_at', 'Unknown')} "
+                f"| Status: {img.get('status', 'Unknown')}\n"
+                f"    Diagnostic Report: {report_snippet}"
+            )
+    else:
+        hist_parts.append("\nImaging Scans: None uploaded.")
+
     history_section = "\n".join(hist_parts)
 
     return (
@@ -267,7 +285,7 @@ async def analyze(req: AnalyzeRequest):
         "response": response_text,
         "agents_used": ["image-analysis-agent", "patient-history-agent"],
         "sources": {
-            "image_count": image_data.get("image_count", 0),
+            "image_count": image_data.get("image_count", 0) + len(history_data.get("image_records", [])),
             "record_count": history_data.get("record_count", 0),
             "medication_count": history_data.get("medication_count", 0),
             "image_agent_error": image_data.get("error"),

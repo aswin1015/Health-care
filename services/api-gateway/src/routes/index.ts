@@ -59,6 +59,21 @@ router.get('/imaging/user/:userId', authMiddleware, async (req: any, res: any) =
     }
 });
 
+// ─── Imaging — update image status ───────────────────────────────────────────
+router.patch('/imaging/:imageId/status', authMiddleware, async (req: any, res: any) => {
+    try {
+        const r = await fetch(`${IMAGING_URL}/image/${req.params.imageId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body),
+        });
+        const data = await r.json();
+        res.status(r.status).json(data);
+    } catch (e: any) {
+        res.status(502).json({ error: 'Imaging service unavailable', details: e.message });
+    }
+});
+
 // ─── Diagnostic Agent Analyze — direct fetch (body-parser already consumed JSON body) ──
 router.post('/diagnostics/analyze', authMiddleware, async (req: any, res: any) => {
     try {

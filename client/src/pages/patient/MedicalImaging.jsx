@@ -16,14 +16,16 @@ export default function MedicalImaging() {
   const [patientContext, setPatientContext] = useState('');
   const [showContextModal, setShowContextModal] = useState(null); // imageUrl to analyze
 
+  const userId = user?._id || user?.id;
+
   useEffect(() => {
-    if (user?.id) fetchImages();
+    if (userId) fetchImages();
   }, [user]);
 
   const fetchImages = async () => {
     setLoading(true);
     try {
-      const res = await imagingAPI.getUserImages(user.id);
+      const res = await imagingAPI.getUserImages(userId);
       setImages(res.data || []);
     } catch {
       setImages([]);
@@ -37,7 +39,7 @@ export default function MedicalImaging() {
     if (!file) return;
     setUploading(true);
     try {
-      await imagingAPI.upload(user.id, file);
+      await imagingAPI.upload(userId, file);
       addToast(`"${file.name}" uploaded to Azure Blob Storage & saved to PostgreSQL! 🎉`, 'success');
       fetchImages();
     } catch (err) {
@@ -52,13 +54,13 @@ export default function MedicalImaging() {
     setAnalyzing(image.id);
     try {
       const userName = user?.name || 'Patient';
-      const userId = user?.id || image.user_id || 'Unknown';
+      const contextUserId = user?._id || user?.id || 'Unknown';
       const userTypedContext = patientContext.trim();
 
       // Build a rich context the AI agent can use
       const enrichedContext = [
         `Patient Name: ${userName}`,
-        `Patient ID: ${userId}`,
+        `Patient ID: ${contextUserId}`,
         `Image File: ${image.filename}`,
         `Upload Date: ${new Date(image.uploaded_at).toLocaleString()}`,
         `Storage URL: ${image.blob_url}`,
@@ -66,7 +68,10 @@ export default function MedicalImaging() {
       ].join('\n');
 
       const res = await diagnosticsAPI.analyze(image.blob_url, enrichedContext);
-      setReports(prev => ({ ...prev, [image.id]: res.data.report }));
+      const report = res.data.report;
+      setReports(prev => ({ ...prev, [image.id]: report }));
+      await imagingAPI.updateStatus(image.id, 'Analyzed', report);
+      fetchImages();
       addToast('Diagnostic Agent analysis complete! 🧠', 'success');
       setShowContextModal(null);
       setPatientContext('');

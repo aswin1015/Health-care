@@ -19,3 +19,4 @@ class ImageRecord(Base):
     blob_url = Column(String)
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
     status = Column(String, default="Pending Analysis")
+    diagnostic_report = Column(String, nullable=True)

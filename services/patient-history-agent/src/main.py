@@ -79,6 +79,22 @@ def to_object_id(user_id: str):
         return user_id  # non-ObjectId fallback (should not happen in production)
 
 
+def clean_doc(doc):
+    """
+    Recursively convert BSON ObjectId values to strings so the document is
+    JSON-serializable. Mongoose adds an _id ObjectId to every sub-document
+    (e.g. medication `schedules` entries), which FastAPI's encoder cannot
+    serialize — this strips that landmine across all collections.
+    """
+    if isinstance(doc, dict):
+        return {k: clean_doc(v) for k, v in doc.items()}
+    if isinstance(doc, list):
+        return [clean_doc(v) for v in doc]
+    if isinstance(doc, ObjectId):
+        return str(doc)
+    return doc
+
+
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get("/history")
@@ -100,51 +116,52 @@ async def get_patient_history(userId: str):
     }
 
     user_oid = to_object_id(userId)
+    # Match whether userId was stored as ObjectId (Mongoose default) or plain string
+    user_filter = {"$or": [{"userId": user_oid}, {"userId": userId}]}
 
     # ── Cosmos DB queries ─────────────────────────────────────────────────────
     if cosmos_db is not None:
+        # Each collection in its own try/except so one failure never silences others
         try:
-            # Medical records: query by ObjectId first, fallback to string
-            # The Azure Function stores userId as ObjectId (line 107 in index.js)
             records_cursor = cosmos_db["medicalrecords"].find(
-                {"userId": user_oid},
+                user_filter,
                 {
                     "_id": 0, "title": 1, "category": 1, "date": 1,
                     "description": 1, "notes": 1, "extractedText": 1,
                     "processingStatus": 1, "blobUrl": 1
                 }
             ).sort("createdAt", -1).limit(10)
-
             async for doc in records_cursor:
-                result["medical_records"].append(doc)
+                result["medical_records"].append(clean_doc(doc))
+        except Exception as e:
+            print(f"⚠️  [patient-history-agent] medicalrecords query error: {e}")
 
-            # Medications (stored by api-gateway with ObjectId userId)
+        try:
             meds_cursor = cosmos_db["medications"].find(
-                {"userId": user_oid},
+                user_filter,
                 {
                     "_id": 0, "name": 1, "dosage": 1, "frequency": 1,
                     "missedCount": 1, "startDate": 1, "schedules": 1,
                     "instructions": 1
                 }
             ).limit(10)
-
             async for doc in meds_cursor:
-                result["medications"].append(doc)
+                result["medications"].append(clean_doc(doc))
+        except Exception as e:
+            print(f"⚠️  [patient-history-agent] medications query error: {e}")
 
-            # Upcoming appointments
+        try:
             appts_cursor = cosmos_db["appointments"].find(
-                {"userId": user_oid, "status": "Scheduled"},
+                {"$and": [user_filter, {"status": "Scheduled"}]},
                 {
                     "_id": 0, "dateTime": 1, "provider": 1,
                     "specialty": 1, "purpose": 1, "status": 1
                 }
             ).limit(5)
-
             async for doc in appts_cursor:
-                result["appointments"].append(doc)
-
+                result["appointments"].append(clean_doc(doc))
         except Exception as e:
-            print(f"⚠️  [patient-history-agent] Cosmos DB query error: {e}")
+            print(f"⚠️  [patient-history-agent] appointments query error: {e}")
 
     # ── PostgreSQL: image upload records ──────────────────────────────────────
     # imaging-service stores user_id as a string (UUID or the frontend userId)
@@ -153,7 +170,7 @@ async def get_patient_history(userId: str):
             db = SessionLocal()
             rows = db.execute(
                 text(
-                    "SELECT id, filename, blob_url, uploaded_at, status "
+                    "SELECT id, filename, blob_url, uploaded_at, status, diagnostic_report "
                     "FROM image_records WHERE user_id = :uid "
                     "ORDER BY id DESC LIMIT 10"
                 ),
@@ -168,6 +185,7 @@ async def get_patient_history(userId: str):
                     "blob_url": row[2],
                     "uploaded_at": str(row[3]) if row[3] else None,
                     "status": row[4],
+                    "diagnostic_report": row[5],
                 })
         except Exception as e:
             print(f"⚠️  [patient-history-agent] PostgreSQL query error: {e}")
