@@ -13,7 +13,11 @@ Usage: {{ include "aegis.image" (dict "root" $ "repo" "api-gateway") }}
 */}}
 {{- define "aegis.image" -}}
 {{- $root := .root -}}
+{{- if $root.Values.global.acrLoginServer -}}
 {{- printf "%s/%s:%s" $root.Values.global.acrLoginServer .repo $root.Values.global.imageTag -}}
+{{- else -}}
+{{- printf "%s:%s" .repo $root.Values.global.imageTag -}}
+{{- end -}}
 {{- end -}}
 
 {{/*

@@ -23,14 +23,12 @@ namespace:
 # ─── Azure Workload Identity ─────────────────────────────────────────────────
 workloadIdentity:
   serviceAccountName: aegis-workload-identity
-  # Managed Identity client-id — Terraform output: workload_identity_client_id
-  clientId: "00000000-0000-0000-0000-000000000000"
+  clientId: "2867ba3d-6959-4bcb-8a45-e7b370b5bd97"
 
 # ─── Azure Key Vault (CSI Secrets Provider) ──────────────────────────────────
 keyVault:
-  name: aegis-kv-aswin
-  # AAD tenant id — Terraform output: tenant_id (or `az account show`)
-  tenantId: "00000000-0000-0000-0000-000000000000"
+  name: aegis-kv-2026
+  tenantId: "3076b773-f5d9-413e-9564-7deaa3d0d7b7"
 
 # Name of the SecretProviderClass and the K8s Secret it syncs into.
 secretProviderClassName: aegis-kv-secret-provider
@@ -100,11 +98,11 @@ services:
     serviceName: api-gateway-service
     image: api-gateway
     port: 5000
-    replicas: 2
+    replicas: 1
     healthPath: /healthz
     resources:
-      requests: { cpu: "150m", memory: "192Mi" }
-      limits: { cpu: "600m", memory: "512Mi" }
+      requests: { cpu: "50m", memory: "128Mi" }
+      limits: { cpu: "300m", memory: "512Mi" }
 
   - name: health-records-service
     image: health-records-service
@@ -170,15 +168,15 @@ frontend:
   serviceName: client-service
   image: client
   port: 80
-  replicas: 2
+  replicas: 1
   healthPath: /healthz
   resources:
-    requests: { cpu: "50m", memory: "64Mi" }
-    limits: { cpu: "200m", memory: "128Mi" }
+    requests: { cpu: "20m", memory: "64Mi" }
+    limits: { cpu: "100m", memory: "128Mi" }
 
 # ─── KGateway (Gateway API) ───────────────────────────────────────────────────
 gateway:
-  enabled: true
+  enabled: false
   className: kgateway
   name: aegis-gateway
   listenerPort: 80

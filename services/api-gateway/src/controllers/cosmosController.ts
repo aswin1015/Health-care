@@ -15,7 +15,13 @@ export const getProcessedDocuments = async (req: Request, res: Response) => {
     const documents = await MedicalRecordModel.find({
       userId,
       blobUrl: { $exists: true, $ne: null },
-    }).sort({ createdAt: -1 });
+    });
+
+    documents.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
     return res.json(documents);
   } catch (error: any) {

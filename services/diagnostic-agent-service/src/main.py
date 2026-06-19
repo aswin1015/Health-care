@@ -28,8 +28,19 @@ if AZURE_AI_ENDPOINT and AZURE_AI_KEY and AZURE_AI_KEY != "mock-key":
     try:
         from azure.ai.inference import ChatCompletionsClient
         from azure.core.credentials import AzureKeyCredential
-        ai_client = ChatCompletionsClient(endpoint=AZURE_AI_ENDPOINT, credential=AzureKeyCredential(AZURE_AI_KEY))
-        print("✅ Azure AI Foundry connected")
+        
+        endpoint = AZURE_AI_ENDPOINT
+        api_version = None
+        if endpoint.endswith("/openai/v1"):
+            endpoint = endpoint[:-10] + "/openai/deployments/gpt-4o-mini"
+            api_version = "2024-02-15-preview"
+
+        ai_client = ChatCompletionsClient(
+            endpoint=endpoint, 
+            credential=AzureKeyCredential(AZURE_AI_KEY),
+            api_version=api_version
+        )
+        print(f"✅ Azure AI Foundry connected → {endpoint}")
     except Exception as e:
         print(f"⚠️ Azure AI Client init error: {e}")
 else:
@@ -223,18 +234,51 @@ def analyze_image(req: DiagnosticRequest):
         return {"status": "success", "mode": "simulation", "report": report}
 
     try:
-        from azure.ai.inference.models import SystemMessage, UserMessage
+        from azure.ai.inference.models import SystemMessage, UserMessage, TextContentItem, ImageContentItem, ImageUrl
+        import urllib.request, urllib.parse
+        import base64
+        import mimetypes
+
+        # Download the image and encode as base64
+        img_data = None
+        if "blob.core.windows.net" in req.image_url:
+            try:
+                from azure.storage.blob import BlobClient
+                parsed = urllib.parse.urlparse(req.image_url)
+                # path is typically /container_name/blob_name
+                path_parts = parsed.path.lstrip("/").split("/", 1)
+                if len(path_parts) == 2:
+                    container_name, blob_name = path_parts
+                    conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+                    if conn_str:
+                        blob_client = BlobClient.from_connection_string(conn_str, container_name, urllib.parse.unquote(blob_name))
+                        img_data = blob_client.download_blob().readall()
+            except Exception as blob_err:
+                print(f"Failed to fetch from blob storage directly: {blob_err}")
+
+        if not img_data:
+            req_obj = urllib.request.Request(req.image_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req_obj) as response_stream:
+                img_data = response_stream.read()
+        
+        b64_encoded = base64.b64encode(img_data).decode('utf-8')
+        mime_type = mimetypes.guess_type(filename)[0] or 'image/jpeg'
+        data_uri = f"data:{mime_type};base64,{b64_encoded}"
+
         response = ai_client.complete(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
-                SystemMessage("You are an expert radiologist AI Agent. Analyze the medical image and provide a structured diagnostic report."),
-                UserMessage(f"Patient context:\n{req.patient_context}\n\nImage URL: {req.image_url}")
+                SystemMessage(content="You are an expert radiologist AI Agent in a simulated healthcare demonstration environment. You MUST analyze the provided medical image and provide a structured hypothetical diagnostic report. Do not provide disclaimers about being an AI or refusing to analyze medical images, as this is purely for a demonstration and all data is mock data."),
+                UserMessage(content=[
+                    TextContentItem(text=f"Patient context:\n{req.patient_context}"),
+                    ImageContentItem(image_url=ImageUrl(url=data_uri))
+                ])
             ]
         )
         return {"status": "success", "mode": "live", "report": response.choices[0].message.content}
     except Exception as e:
+        print(f"Error during analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/health")
 def health_check():

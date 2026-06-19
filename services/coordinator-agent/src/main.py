@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
-from openai import OpenAI
+from openai import AzureOpenAI
 
 app = FastAPI(title="Coordinator Agent — Aegis Health")
 
@@ -48,12 +48,17 @@ ai_ready   = False
 
 if AZURE_AI_KEY and AZURE_AI_ENDPOINT:
     try:
-        ai_client = OpenAI(
+        endpoint = AZURE_AI_ENDPOINT
+        if endpoint.endswith("/openai/v1"):
+            endpoint = endpoint[:-10]
+
+        ai_client = AzureOpenAI(
             api_key=AZURE_AI_KEY,
-            base_url=AZURE_AI_ENDPOINT,
+            azure_endpoint=endpoint,
+            api_version="2024-02-15-preview"
         )
         ai_ready = True
-        print(f"✅ [coordinator-agent] Azure AI Foundry configured → {AZURE_AI_ENDPOINT}")
+        print(f"✅ [coordinator-agent] Azure AI Foundry configured → {endpoint}")
     except Exception as e:
         print(f"⚠️  [coordinator-agent] Azure AI Foundry setup failed: {e}")
 else:

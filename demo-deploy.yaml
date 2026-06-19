@@ -3,7 +3,7 @@
 # Prerequisites:
 #   kubectl create namespace aegis
 #   kubectl create secret generic aegis-secrets -n aegis \   (see README below)
-#   Images pushed to aegisdemoacr.azurecr.io
+#   Images pushed to aegishealthacr2026.azurecr.io
 #
 # Apply:  kubectl apply -f demo-deploy.yaml
 # Access: kubectl get svc client-service -n aegis   (EXTERNAL-IP → port 80)
@@ -57,6 +57,13 @@ spec:
       labels:
         app: mongodb
     spec:
+      initContainers:
+        - name: init-mongo-dir
+          image: busybox
+          command: ["sh", "-c", "mkdir -p /data/db/mongodata && chmod 777 /data/db/mongodata"]
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
       containers:
         - name: mongodb
           image: mongo:7.0
@@ -65,15 +72,16 @@ spec:
           env:
             - name: MONGO_INITDB_DATABASE
               value: "ai-health-agent"
+          args: ["--dbpath", "/data/db/mongodata"]
           volumeMounts:
             - name: data
               mountPath: /data/db
           readinessProbe:
             exec:
               command: ["mongosh", "--eval", "db.adminCommand('ping')"]
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 10
-            failureThreshold: 5
+            failureThreshold: 6
           resources:
             requests: { cpu: "100m", memory: "256Mi" }
             limits:   { cpu: "500m", memory: "512Mi" }
@@ -138,6 +146,8 @@ spec:
                 secretKeyRef:
                   name: aegis-secrets
                   key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
@@ -233,7 +243,7 @@ spec:
     spec:
       containers:
         - name: health-records-service
-          image: aegisdemoacr.azurecr.io/health-records-service:latest
+          image: aegishealthacr2026.azurecr.io/health-records-service:latest
           ports:
             - containerPort: 5001
           env:
@@ -283,7 +293,7 @@ spec:
     spec:
       containers:
         - name: medication-service
-          image: aegisdemoacr.azurecr.io/medication-service:latest
+          image: aegishealthacr2026.azurecr.io/medication-service:latest
           ports:
             - containerPort: 5002
           env:
@@ -333,7 +343,7 @@ spec:
     spec:
       containers:
         - name: ai-service
-          image: aegisdemoacr.azurecr.io/ai-service:latest
+          image: aegishealthacr2026.azurecr.io/ai-service:latest
           ports:
             - containerPort: 5003
           env:
@@ -388,7 +398,7 @@ spec:
     spec:
       containers:
         - name: imaging-service
-          image: aegisdemoacr.azurecr.io/imaging-service:latest
+          image: aegishealthacr2026.azurecr.io/imaging-service:latest
           ports:
             - containerPort: 5004
           env:
@@ -443,7 +453,7 @@ spec:
     spec:
       containers:
         - name: diagnostic-agent-service
-          image: aegisdemoacr.azurecr.io/diagnostic-agent-service:latest
+          image: aegishealthacr2026.azurecr.io/diagnostic-agent-service:latest
           ports:
             - containerPort: 5005
           env:
@@ -498,7 +508,7 @@ spec:
     spec:
       containers:
         - name: image-analysis-agent
-          image: aegisdemoacr.azurecr.io/image-analysis-agent:latest
+          image: aegishealthacr2026.azurecr.io/image-analysis-agent:latest
           ports:
             - containerPort: 8001
           env:
@@ -546,7 +556,7 @@ spec:
     spec:
       containers:
         - name: patient-history-agent
-          image: aegisdemoacr.azurecr.io/patient-history-agent:latest
+          image: aegishealthacr2026.azurecr.io/patient-history-agent:latest
           ports:
             - containerPort: 8002
           env:
@@ -599,7 +609,7 @@ spec:
     spec:
       containers:
         - name: coordinator-agent
-          image: aegisdemoacr.azurecr.io/coordinator-agent:latest
+          image: aegishealthacr2026.azurecr.io/coordinator-agent:latest
           ports:
             - containerPort: 8000
           env:
@@ -656,7 +666,7 @@ spec:
     spec:
       containers:
         - name: notification-worker
-          image: aegisdemoacr.azurecr.io/notification-worker:latest
+          image: aegishealthacr2026.azurecr.io/notification-worker:latest
           env:
             - name: MONGODB_URI
               valueFrom:
@@ -689,7 +699,7 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: aegisdemoacr.azurecr.io/api-gateway:latest
+          image: aegishealthacr2026.azurecr.io/api-gateway:latest
           ports:
             - containerPort: 5000
           envFrom:
@@ -747,7 +757,7 @@ spec:
     spec:
       containers:
         - name: client
-          image: aegisdemoacr.azurecr.io/client:latest
+          image: aegishealthacr2026.azurecr.io/client:latest
           ports:
             - containerPort: 80
           readinessProbe:
